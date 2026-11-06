@@ -7,7 +7,7 @@ const DEFAULTS = {
 };
 
 function speechUrl(endpoint) {
-  const value = endpoint.trim().replace(/\\/+$/, "");
+  const value = endpoint.trim().replace(/\/+$/, "");
   return value.endsWith("/audio/speech") ? value : value + "/audio/speech";
 }
 
