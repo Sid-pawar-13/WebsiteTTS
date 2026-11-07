@@ -118,16 +118,20 @@ async function testConfiguration(values, providerName) {
     throw new Error("The API responded successfully but returned an empty audio file.");
   }
 
+  const responseType = response.headers.get("content-type") || "";
   if (providerName === "ollama") {
     const signature = new TextDecoder().decode(new Uint8Array(audio, 0, Math.min(4, audio.byteLength)));
     if (signature !== "RIFF") {
       throw new Error("Ollama did not return a valid WAV file. Check that Phonon is selected and response_format is wav.");
     }
+  } else if (responseType && !responseType.toLowerCase().startsWith("audio/") &&
+      !responseType.toLowerCase().includes("application/octet-stream")) {
+    throw new Error("The API returned " + responseType + " instead of audio. Check the model and speech endpoint.");
   }
 
   return {
     bytes: audio.byteLength,
-    contentType: providerName === "ollama" ? "audio/wav" : (response.headers.get("content-type") || "audio/mpeg")
+    contentType: providerName === "ollama" ? "audio/wav" : (responseType || "audio/mpeg")
   };
 }
 
