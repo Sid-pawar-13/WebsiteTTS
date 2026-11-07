@@ -28,6 +28,59 @@ async function ensureAudioDocument() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+
+  if (message?.type === "website-tts:collect-frames") {
+    (async () => {
+      const tabId = sender.tab?.id;
+      if (tabId == null) throw new Error("Could not identify the active tab.");
+      const frames = await chrome.webNavigation.getAllFrames({ tabId }) || [];
+      const collected = await Promise.all(frames.map(async frame => {
+        try {
+          const result = await chrome.tabs.sendMessage(
+            tabId,
+            { command: "websiteTTS:collectFrame" },
+            { frameId: frame.frameId }
+          );
+          return { frameId: frame.frameId, count: result?.count || 0 };
+        } catch {
+          return null;
+        }
+      }));
+      sendResponse({ frames: collected.filter(frame => frame && frame.count > 0) });
+    })().catch(error => sendResponse({ error: error.message || "Could not inspect page frames." }));
+    return true;
+  }
+
+  if (message?.type === "website-tts:frame-command") {
+    (async () => {
+      const tabId = sender.tab?.id;
+      if (tabId == null) throw new Error("Could not identify the active tab.");
+      const result = await chrome.tabs.sendMessage(
+        tabId,
+        { command: message.command, index: message.index, rate: message.rate },
+        { frameId: message.frameId }
+      );
+      sendResponse(result || { ok: true });
+    })().catch(error => sendResponse({ error: error.message || "Could not control the page frame." }));
+    return true;
+  }
+
+  if (message?.type === "website-tts:stop-all-frames" || message?.type === "website-tts:set-frame-rate") {
+    (async () => {
+      const tabId = sender.tab?.id;
+      if (tabId == null) return sendResponse({ ok: true });
+      const frames = await chrome.webNavigation.getAllFrames({ tabId }) || [];
+      await Promise.all(frames.map(frame =>
+        chrome.tabs.sendMessage(
+          tabId,
+          { command: message.type === "website-tts:stop-all-frames" ? "websiteTTS:stopFrame" : "websiteTTS:setFrameRate", rate: message.rate },
+          { frameId: frame.frameId }
+        ).catch(() => {})
+      ));
+      sendResponse({ ok: true });
+    })().catch(error => sendResponse({ error: error.message || "Could not update page frames." }));
+    return true;
+  }
   if (message?.type === "website-tts:play" || message?.type === "website-tts:stop") {
     (async () => {
       await ensureAudioDocument();
