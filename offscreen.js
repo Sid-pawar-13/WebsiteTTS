@@ -1,9 +1,18 @@
 let currentAudio = null;
 let currentUrl = null;
+let currentSendResponse = null;
 let playbackId = 0;
 
 function stopPlayback() {
   playbackId++;
+
+  // Resolve the previous play request when playback is interrupted. Without
+  // this, the content script can remain awaiting a response forever.
+  if (currentSendResponse) {
+    currentSendResponse({ ok: true, stopped: true });
+    currentSendResponse = null;
+  }
+
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.removeAttribute("src");
@@ -27,6 +36,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   stopPlayback();
   const id = playbackId;
+  currentSendResponse = sendResponse;
+
   (async () => {
     try {
       const binary = atob(message.audioBase64);
@@ -43,9 +54,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         ));
         player.play().catch(reject);
       });
-      if (id === playbackId) sendResponse({ ok: true });
+
+      if (id === playbackId && currentSendResponse === sendResponse) {
+        currentSendResponse = null;
+        sendResponse({ ok: true });
+      }
     } catch (error) {
-      if (id === playbackId) sendResponse({ error: error.message || "Audio playback failed." });
+      if (id === playbackId && currentSendResponse === sendResponse) {
+        currentSendResponse = null;
+        sendResponse({ error: error.message || "Audio playback failed." });
+      }
     } finally {
       if (id === playbackId) stopPlayback();
     }

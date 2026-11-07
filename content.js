@@ -21,22 +21,49 @@
       "p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,dt,dd,td,th," +
       "[role='paragraph'],[role='listitem'],[data-testid*='paragraph'],[data-testid*='text']";
     const semantic = [...document.querySelectorAll(semanticSelector)];
-    const leafDivs = [...document.querySelectorAll("div")].filter(el =>
-      !el.querySelector(semanticSelector) && !el.querySelector("div")
-    );
-    const candidates = [...new Set([...semantic, ...leafDivs])];
-    const seen = new Set();
 
-    return candidates.filter(el => {
-      const text = el.innerText?.replace(/\s+/g, " ").trim();
-      const rect = el.getBoundingClientRect();
+    // Skilljar lesson text is often stored in nested divs. Collect text owned
+    // by each div (including text inside inline spans), not only leaf divs.
+    // Text inside a nested div is left for that nested div to collect.
+    function directDivText(el) {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          let parent = node.parentElement;
+          while (parent && parent !== el) {
+            if (parent.tagName === "DIV") return NodeFilter.FILTER_REJECT;
+            parent = parent.parentElement;
+          }
+          return node.nodeValue.trim()
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        }
+      });
+      const parts = [];
+      let node;
+      while ((node = walker.nextNode())) parts.push(node.nodeValue.trim());
+      return parts.join(" ").replace(/\s+/g, " ").trim();
+    }
+
+    const candidates = semantic.map(element => ({
+      element,
+      text: element.innerText?.replace(/\s+/g, " ").trim()
+    }));
+
+    for (const element of document.querySelectorAll("div")) {
+      // Semantic elements are collected separately. Avoid reading their text
+      // again through a surrounding div.
+      if (element.querySelector(semanticSelector)) continue;
+      const text = directDivText(element);
+      if (text.length >= 2) candidates.push({ element, text });
+    }
+
+    return candidates.filter(({ element, text }) => {
+      const rect = element.getBoundingClientRect();
       if (!text || text.length < 2 || !rect.width || !rect.height ||
-          el.closest("nav,header,footer,aside,[aria-hidden='true'],[hidden]")) return false;
-      const style = window.getComputedStyle(el);
-      if (style.display === "none" || style.visibility === "hidden") return false;
-      if (el.tagName === "DIV" && text.length < 25) return false;
-      if (seen.has(text)) return false;
-      seen.add(text);
+          element.closest("nav,header,footer,aside,[aria-hidden='true'],[hidden]")) return false;
+      const style = window.getComputedStyle(element);
+      if (style.display === "none" || style.visibility === "hidden" ||
+          style.visibility === "collapse") return false;
       return true;
     });
   }
@@ -108,13 +135,14 @@
     const token = runId;
     speaking = true;
     finished = false;
-    const element = blocks[localIndex];
+    const block = blocks[localIndex];
+    const element = block.element;
     clearHighlight();
     element.classList.add(highlightClass);
     element.scrollIntoView({ behavior: "smooth", block: "center" });
 
     try {
-      for (const chunk of splitText(element.innerText.trim())) {
+      for (const chunk of splitText(block.text)) {
         if (token !== runId) return { stopped: true };
         const payload = await requestAudio(chunk, token);
         if (token !== runId) return { stopped: true };
@@ -265,16 +293,24 @@
 
     if (message.command === "start") {
       await stopAllFrames();
+      const token = controllerRun;
       const total = await collectAllFrames();
+      // A Stop command can arrive while frame discovery is still pending.
+      if (token !== controllerRun) {
+        return { status: { speaking: false, finished: false, index: globalIndex, total } };
+      }
       if (!total) return { error: "No readable text found on this page or its frames." };
       globalIndex = finished ? 0 : Math.min(globalIndex, total - 1);
-      const token = controllerRun;
       return playGlobal(globalIndex, token);
     }
 
     if (message.command === "forward" || message.command === "backward") {
+      const discoveryToken = controllerRun;
       if (!frameBlocks.length) {
         const total = await collectAllFrames();
+        if (discoveryToken !== controllerRun) {
+          return { status: { speaking: false, finished: false, index: globalIndex, total } };
+        }
         if (!total) return { error: "No readable text found on this page or its frames." };
       }
       await stopAllFrames();

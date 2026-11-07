@@ -4,6 +4,7 @@ const providerHelp = document.getElementById("providerHelp");
 const statusEl = document.getElementById("settingsStatus");
 const testButton = document.getElementById("test");
 const saveButton = document.getElementById("save");
+const themeToggle = document.getElementById("themeToggle");
 const FIELDS = ["endpoint", "model", "voice", "apiKey"];
 
 const DEFAULTS = {
@@ -22,11 +23,30 @@ const DEFAULTS = {
 };
 
 let testAudioPlayer = null;
+let testAudioUrl = null;
 
 let providerSettings = {
   ollama: { ...DEFAULTS.ollama },
   openai: { ...DEFAULTS.openai }
 };
+
+function applyTheme(theme) {
+  const dark = theme === "dark";
+  document.body.dataset.theme = dark ? "dark" : "light";
+  themeToggle.textContent = dark ? "☀ Light" : "☾ Dark";
+  themeToggle.title = dark ? "Switch to light theme" : "Switch to dark theme";
+  themeToggle.setAttribute("aria-label", themeToggle.title);
+}
+
+themeToggle.addEventListener("click", async () => {
+  const next = document.body.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try {
+    await chrome.storage.local.set({ theme: next });
+  } catch (error) {
+    setStatus("Could not save theme: " + (error.message || "Unknown storage error"), "error");
+  }
+});
 
 function setStatus(message, type = "") {
   statusEl.textContent = message;
@@ -101,9 +121,11 @@ async function testConfiguration(values, providerName) {
     response = await fetch(speechUrl(values.endpoint), {
       method: "POST",
       headers,
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60000)
     });
   } catch (error) {
+    if (error.name === "TimeoutError" || error.name === "AbortError") throw new Error("The API test timed out after 60 seconds. Check the model server and try again.");
     if (providerName === "ollama") {
       throw new Error("Could not connect to Ollama. Check that it is running and allows this extension in OLLAMA_ORIGINS. " + error.message);
     }
@@ -136,19 +158,47 @@ async function testConfiguration(values, providerName) {
   });
 }
 
+function stopTestAudio() {
+  if (testAudioPlayer) {
+    testAudioPlayer.pause();
+    testAudioPlayer.removeAttribute("src");
+    testAudioPlayer.load();
+    testAudioPlayer = null;
+  }
+  if (testAudioUrl) {
+    URL.revokeObjectURL(testAudioUrl);
+    testAudioUrl = null;
+  }
+}
+
 async function playTestAudio(blob) {
+  // A new test replaces any test clip that is still playing.
+  stopTestAudio();
+
   const audioUrl = URL.createObjectURL(blob);
   const audio = new Audio(audioUrl);
+  testAudioUrl = audioUrl;
   testAudioPlayer = audio;
-  audio.addEventListener("ended", () => URL.revokeObjectURL(audioUrl), { once: true });
-  audio.addEventListener("error", () => URL.revokeObjectURL(audioUrl), { once: true });
+
+  const cleanup = () => {
+    if (testAudioPlayer === audio) testAudioPlayer = null;
+    if (testAudioUrl === audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+      testAudioUrl = null;
+    }
+  };
+  audio.addEventListener("ended", cleanup, { once: true });
+  audio.addEventListener("error", cleanup, { once: true });
+
   try {
     await audio.play();
   } catch (error) {
-    URL.revokeObjectURL(audioUrl);
+    cleanup();
     throw new Error("The API returned audio, but the test sound could not be played: " + error.message);
   }
 }
+
+window.addEventListener("pagehide", stopTestAudio);
 
 async function runTest() {
   const providerName = provider.value;
@@ -223,6 +273,7 @@ async function saveConfiguration() {
 async function loadSettings() {
   try {
     const stored = await chrome.storage.local.get(null);
+    applyTheme(stored.theme || "light");
     const selectedProvider = stored.provider === "ollama" ? "ollama" : "openai";
     const savedProviders = stored.providerSettings || {};
 

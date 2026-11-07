@@ -8,6 +8,7 @@ A Chrome Manifest V3 extension that reads webpage content aloud using either loc
 - Adjustable playback speed (0.7×–2.0×)
 - Dedicated settings page for Ollama and OpenAI-compatible providers
 - Test API with a short "Hi! This is a test." prompt before saving
+- Persistent light/dark theme across the popup and settings page
 - Ollama Phonon WAV playback and OpenAI-compatible MP3 playback
 
 ## Configure TTS
@@ -45,6 +46,18 @@ The `chrome-extension://*` origin pattern allows Chrome extensions to connect to
 
 Select **OpenAI-compatible API**, then enter API base URL, model, voice and API key. The extension appends `/audio/speech` unless you provide the full endpoint. It requests MP3 and sends the speed parameter.
 
+## Audio file lifecycle
+
+Generated speech is kept in memory; WebsiteTTS does not save section audio as a file on disk. The background worker converts the API response to base64 and passes it to the offscreen audio document. The offscreen document reconstructs a Blob, creates a temporary object URL, and plays it.
+
+After playback ends, or when playback is stopped/replaced or fails, the audio element is cleared and the object URL is revoked. The API test player follows the same cleanup pattern, including when a new test replaces a clip that is still playing or the settings page is closed.
+
+Each section is synthesized when it is about to be read. A newer section does not overwrite a persistent audio file because no persistent audio file is created.
+
+## UI theme
+
+Use the moon/sun control in the popup or settings page to switch between light and dark themes. The selected theme is stored in Chrome extension storage and shared by both pages.
+
 ## Install
 
 1. Download or clone this repository.
@@ -61,6 +74,16 @@ No build step is required.
 ## API key security
 
 OpenAI-compatible API keys are stored in `chrome.storage.local`. This is not a secure secret vault; someone with access to your browser profile or extension developer tools may retrieve the key. For shared or production use, put the key behind a private backend/proxy.
+
+## Review notes
+
+- Speech-generation requests now time out rather than waiting indefinitely (120 seconds during reading; 60 seconds for the settings test).
+- Successful HTTP responses are checked for an audio content type for OpenAI-compatible providers, reducing confusing decode failures when a proxy returns an HTML page with status 200.
+- Navigation checks the playback generation after asynchronous frame discovery, so a Stop command issued during discovery is not followed by a stale Start/Next operation.
+- Offscreen audio-document creation is serialized so simultaneous Stop/Play messages do not race to create multiple offscreen documents.
+- The extension still requests access to all URLs and injects a content script into matching frames because its core feature is reading arbitrary webpages, including embedded lesson content. This is broad access; users should install it only if they trust the extension source.
+- The popup currently waits for a reading/navigation command to finish before its status text is refreshed. A future improvement would be to move playback status to push updates so the popup can remain responsive and show live progress.
+- Text extraction is heuristic. Nested wrappers with identical text are filtered while separate repeated paragraphs are preserved, but complex pages can still include irrelevant text or require page-specific extraction rules.
 
 ## Limitations
 

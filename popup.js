@@ -1,17 +1,37 @@
 const statusEl = document.getElementById("status");
 const rate = document.getElementById("rate");
 const provider = document.getElementById("provider");
+const themeToggle = document.getElementById("themeToggle");
 
 async function loadSettings() {
   try {
-    const stored = await chrome.storage.local.get(["speed", "provider"]);
+    const stored = await chrome.storage.local.get(["speed", "provider", "theme"]);
     rate.value = String(stored.speed ?? 1);
     provider.value = stored.provider === "ollama" ? "ollama" : "openai";
+    applyTheme(stored.theme || "light");
     updateRateLabel();
   } catch (error) {
     statusEl.textContent = "Could not load settings: " + error.message;
   }
 }
+
+function applyTheme(theme) {
+  const dark = theme === "dark";
+  document.body.dataset.theme = dark ? "dark" : "light";
+  themeToggle.textContent = dark ? "☀" : "☾";
+  themeToggle.title = dark ? "Switch to light theme" : "Switch to dark theme";
+  themeToggle.setAttribute("aria-label", themeToggle.title);
+}
+
+themeToggle.addEventListener("click", async () => {
+  const next = document.body.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try {
+    await chrome.storage.local.set({ theme: next });
+  } catch (error) {
+    statusEl.textContent = "Could not save theme: " + error.message;
+  }
+});
 
 function updateRateLabel() {
   document.getElementById("rateValue").value = Number(rate.value).toFixed(1) + "×";

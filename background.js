@@ -18,13 +18,24 @@ function toBase64(buffer) {
   return btoa(binary);
 }
 
+let creatingOffscreenDocument = null;
+
 async function ensureAudioDocument() {
   if (await chrome.offscreen.hasDocument()) return;
-  await chrome.offscreen.createDocument({
-    url: "offscreen.html",
-    reasons: ["AUDIO_PLAYBACK"],
-    justification: "Play generated speech audio outside the webpage context."
-  });
+  if (!creatingOffscreenDocument) {
+    creatingOffscreenDocument = chrome.offscreen.createDocument({
+      url: "offscreen.html",
+      reasons: ["AUDIO_PLAYBACK"],
+      justification: "Play generated speech audio outside the webpage context."
+    }).catch(async error => {
+      // Another message may have created the document while this request waited.
+      if (await chrome.offscreen.hasDocument()) return;
+      throw error;
+    }).finally(() => {
+      creatingOffscreenDocument = null;
+    });
+  }
+  await creatingOffscreenDocument;
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -128,8 +139,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     let response;
     try {
-      response = await fetch(url.toString(), { method: "POST", headers, body: JSON.stringify(body) });
+      response = await fetch(url.toString(), { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(120000) });
     } catch (error) {
+      if (error.name === "TimeoutError" || error.name === "AbortError") throw new Error("The TTS request timed out after 120 seconds. Check the model server and try a shorter section.");
       if (provider === "ollama") {
         throw new Error("Cannot reach Ollama. Ensure it is running and has allowed this Chrome extension in OLLAMA_ORIGINS. " + error.message);
       }
@@ -155,6 +167,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       contentType = "audio/wav";
     } else {
+      if (contentType && !contentType.toLowerCase().startsWith("audio/") && !contentType.toLowerCase().includes("application/octet-stream")) {
+        throw new Error("The TTS API returned " + contentType + " instead of audio. Check the model and speech endpoint.");
+      }
       contentType = contentType || "audio/mpeg";
     }
     sendResponse({ audioBase64: toBase64(audioBuffer), contentType });
