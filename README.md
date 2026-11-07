@@ -45,6 +45,14 @@ The `chrome-extension://*` origin pattern allows Chrome extensions to connect to
 
 Select **OpenAI-compatible API**, then enter API base URL, model, voice and API key. The extension appends `/audio/speech` unless you provide the full endpoint. It requests MP3 and sends the speed parameter.
 
+## Audio file lifecycle
+
+Generated speech is kept in memory; WebsiteTTS does not save section audio as a file on disk. The background worker converts the API response to base64 and passes it to the offscreen audio document. The offscreen document reconstructs a Blob, creates a temporary object URL, and plays it.
+
+After playback ends, or when playback is stopped/replaced or fails, the audio element is cleared and the object URL is revoked. The API test player follows the same cleanup pattern, including when a new test replaces a clip that is still playing or the settings page is closed.
+
+Each section is synthesized when it is about to be read. A newer section does not overwrite a persistent audio file because no persistent audio file is created.
+
 ## Install
 
 1. Download or clone this repository.
