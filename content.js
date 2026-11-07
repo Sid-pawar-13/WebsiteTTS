@@ -284,6 +284,26 @@
   }
 
   chrome.runtime.onMessage.addListener((message, sender, reply) => {
+    if (message.command === "websiteTTS:collectFrame") {
+      blocks = collectTextBlocks();
+      reply({ count: blocks.length });
+      return;
+    }
+    if (message.command === "websiteTTS:speakFrameBlock") {
+      rate = Math.min(2, Math.max(0.7, Number(message.rate) || rate));
+      speakOne(message.index).then(reply);
+      return true;
+    }
+    if (message.command === "websiteTTS:stopFrame") {
+      stopLocal();
+      reply({ ok: true });
+      return;
+    }
+    if (message.command === "websiteTTS:setFrameRate") {
+      rate = Math.min(2, Math.max(0.7, Number(message.rate) || rate));
+      reply({ ok: true });
+      return;
+    }
     if (!["start", "stop", "forward", "backward", "setRate", "getStatus"].includes(message.command)) return;
     handleCommand(message).then(reply).catch(error => reply({ error: error.message || "Unable to read this page." }));
     return true;
