@@ -61,10 +61,9 @@
   function stop() {
     runId++;
     if (audio) {
-      audio.pause();
-      audio.src = "";
       audio = null;
     }
+    chrome.runtime.sendMessage({ type: "website-tts:stop" }).catch(() => {});
     speaking = false;
     clearHighlight();
   }
@@ -87,43 +86,16 @@
 
   function playAudio(payload, token) {
     return new Promise((resolve, reject) => {
-      let settled = false;
-      const finish = (error) => {
-        if (settled) return;
-        settled = true;
-        if (audio === player) audio = null;
-        player.onended = null;
-        player.onerror = null;
-        player.pause();
-        player.removeAttribute("src");
-        player.load();
-        if (error) reject(error);
-        else resolve();
-      };
-
-      let player;
-      try {
-        const audioUrl = `data:${payload.contentType};base64,${payload.audioBase64}`;
-        player = new Audio();
-        player.preload = "auto";
-        player.src = audioUrl;
-        audio = player;
-        player.playbackRate = rate;
-        player.onended = () => finish();
-        player.onerror = () => {
-          const mediaError = player.error;
-          const details = mediaError
-            ? `MediaError code ${mediaError.code}: ${mediaError.message || "no additional details"}`
-            : "The browser did not provide media error details.";
-          finish(new Error(`Chrome could not decode the TTS audio (${details}; type: ${payload.contentType}; base64 characters: ${payload.audioBase64.length}).`));
-        };
-        player.play().catch(error => {
-          finish(new Error(`Chrome could not start TTS playback: ${error.message || error.name || "unknown playback error"}`));
-        });
-        if (token !== runId) finish();
-      } catch (error) {
-        reject(new Error(`Could not prepare TTS audio for playback: ${error.message}`));
-      }
+      chrome.runtime.sendMessage(
+        { type: "website-tts:play", audioBase64: payload.audioBase64, contentType: payload.contentType },
+        response => {
+          const error = chrome.runtime.lastError;
+          if (error) return reject(new Error(error.message));
+          if (token !== runId) return resolve();
+          if (response?.error) return reject(new Error(response.error));
+          resolve();
+        }
+      );
     });
   }
 
