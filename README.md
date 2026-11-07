@@ -83,7 +83,7 @@ OpenAI-compatible API keys are stored in `chrome.storage.local`. This is not a s
 - Offscreen audio-document creation is serialized so simultaneous Stop/Play messages do not race to create multiple offscreen documents.
 - The extension still requests access to all URLs and injects a content script into matching frames because its core feature is reading arbitrary webpages, including embedded lesson content. This is broad access; users should install it only if they trust the extension source.
 - The popup currently waits for a reading/navigation command to finish before its status text is refreshed. A future improvement would be to move playback status to push updates so the popup can remain responsive and show live progress.
-- Text extraction is heuristic. Repeated identical paragraphs may be deduplicated, and complex pages can contain navigation or duplicated nested text; page-specific extraction rules may be needed for some sites.
+- Text extraction is heuristic. Nested wrappers with identical text are filtered while separate repeated paragraphs are preserved, but complex pages can still include irrelevant text or require page-specific extraction rules.
 
 ## Limitations
 
