@@ -79,29 +79,58 @@
           if (token !== runId) return reject(new Error("Playback stopped."));
           if (response?.error) return reject(new Error(response.error));
           if (!response?.audioUrl) return reject(new Error("The TTS API returned no audio."));
-          resolve(response.audioUrl);
+          if (!response?.audioBase64 || !response?.contentType) return reject(new Error("The TTS API returned an incomplete audio response."));
+          resolve({ audioBase64: response.audioBase64, contentType: response.contentType });
         }
       );
     });
   }
 
-  function playAudio(url, token) {
+  function playAudio(payload, token) {
     return new Promise((resolve, reject) => {
-      const player = new Audio(url);
-      audio = player;
-      player.playbackRate = rate;
-      player.onended = () => {
+      let objectUrl;
+      let settled = false;
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
         if (audio === player) audio = null;
-        resolve();
-      };
-      player.onerror = () => {
-        if (audio === player) audio = null;
-        reject(new Error("Could not play the audio returned by the TTS API."));
-      };
-      player.play().catch(reject);
-      if (token !== runId) {
+        player.onended = null;
+        player.onerror = null;
         player.pause();
-        resolve();
+        player.removeAttribute("src");
+        player.load();
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        if (error) reject(error);
+        else resolve();
+      };
+
+      let player;
+      try {
+        const binary = atob(payload.audioBase64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: payload.contentType });
+        objectUrl = URL.createObjectURL(blob);
+        player = new Audio();
+        player.preload = "auto";
+        player.src = objectUrl;
+        audio = player;
+        player.playbackRate = rate;
+        player.onended = () => finish();
+        player.onerror = () => {
+          const mediaError = player.error;
+          const details = mediaError
+            ? `MediaError code ${mediaError.code}: ${mediaError.message || "no additional details"}`
+            : "The browser did not provide media error details.";
+          finish(new Error(`Chrome could not decode the TTS audio (${details}; type: ${payload.contentType}; bytes: ${blob.size}).`));
+        };
+        player.play().catch(error => {
+          finish(new Error(`Chrome could not start TTS playback: ${error.message || error.name || "unknown playback error"}`));
+        });
+        if (token !== runId) finish();
+      } catch (error) {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        reject(new Error(`Could not prepare TTS audio for playback: ${error.message}`));
       }
     });
   }
@@ -130,9 +159,9 @@
       const chunks = splitText(element.innerText.trim());
       for (const chunk of chunks) {
         if (token !== runId) return { status: status() };
-        const url = await requestAudio(chunk, token);
+        const audioPayload = await requestAudio(chunk, token);
         if (token !== runId) return { status: status() };
-        await playAudio(url, token);
+        await playAudio(audioPayload, token);
       }
       if (token !== runId) return { status: status() };
       if (index + 1 < blocks.length) return speakParagraph(index + 1);
