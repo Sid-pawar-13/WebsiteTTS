@@ -3,44 +3,37 @@
   window.__websiteTTSLoaded = true;
 
   let blocks = [];
-  let index = 0;
   let rate = 1;
   let speaking = false;
   let finished = false;
-  let audio = null;
   let runId = 0;
   const highlightClass = "website-tts-current";
+  const isTopFrame = window === window.top;
 
-  const status = () => ({ speaking, finished, index, total: blocks.length });
+  const status = (index = 0, total = blocks.length) => ({ speaking, finished, index, total });
 
   function clearHighlight() {
     document.querySelectorAll("." + highlightClass).forEach(el => el.classList.remove(highlightClass));
   }
 
   function collectTextBlocks() {
-    // Include semantic text elements even when a page also has a title.
-    // Skilljar and other course platforms often render lesson text in nested divs.
     const semanticSelector =
       "p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,dt,dd,td,th," +
       "[role='paragraph'],[role='listitem'],[data-testid*='paragraph'],[data-testid*='text']";
     const semantic = [...document.querySelectorAll(semanticSelector)];
-
-    // Pick leaf divs containing readable text. This captures div-based lesson
-    // content without also collecting every parent container and duplicating it.
     const leafDivs = [...document.querySelectorAll("div")].filter(el =>
       !el.querySelector(semanticSelector) && !el.querySelector("div")
     );
-
     const candidates = [...new Set([...semantic, ...leafDivs])];
     const seen = new Set();
+
     return candidates.filter(el => {
-      const text = el.innerText?.replace(/\\s+/g, " ").trim();
+      const text = el.innerText?.replace(/\s+/g, " ").trim();
       const rect = el.getBoundingClientRect();
       if (!text || text.length < 2 || !rect.width || !rect.height ||
           el.closest("nav,header,footer,aside,[aria-hidden='true'],[hidden]")) return false;
       const style = window.getComputedStyle(el);
       if (style.display === "none" || style.visibility === "hidden") return false;
-      // Ignore short wrapper labels, but keep short semantic headings.
       if (el.tagName === "DIV" && text.length < 25) return false;
       if (seen.has(text)) return false;
       seen.add(text);
@@ -53,7 +46,7 @@
     const chunks = [];
     let chunk = "";
     for (const sentence of sentences) {
-      if (chunk && (chunk.length + sentence.length > maxLength)) {
+      if (chunk && chunk.length + sentence.length > maxLength) {
         chunks.push(chunk.trim());
         chunk = "";
       }
@@ -70,11 +63,8 @@
     return chunks.filter(Boolean);
   }
 
-  function stop() {
+  function stopLocal() {
     runId++;
-    if (audio) {
-      audio = null;
-    }
     chrome.runtime.sendMessage({ type: "website-tts:stop" }).catch(() => {});
     speaking = false;
     clearHighlight();
@@ -82,77 +72,65 @@
 
   function requestAudio(text, token) {
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(
-        { type: "website-tts:synthesize", text, rate },
-        response => {
-          const error = chrome.runtime.lastError;
-          if (error) return reject(new Error(error.message));
-          if (token !== runId) return reject(new Error("Playback stopped."));
-          if (response?.error) return reject(new Error(response.error));
-          if (!response?.audioBase64 || !response?.contentType) return reject(new Error("The TTS API returned an incomplete audio response."));
-          resolve({ audioBase64: response.audioBase64, contentType: response.contentType });
-        }
-      );
+      chrome.runtime.sendMessage({ type: "website-tts:synthesize", text, rate }, response => {
+        const error = chrome.runtime.lastError;
+        if (error) return reject(new Error(error.message));
+        if (token !== runId) return reject(new Error("Playback stopped."));
+        if (response?.error) return reject(new Error(response.error));
+        if (!response?.audioBase64 || !response?.contentType)
+          return reject(new Error("The TTS API returned an incomplete audio response."));
+        resolve({ audioBase64: response.audioBase64, contentType: response.contentType });
+      });
     });
   }
 
   function playAudio(payload, token) {
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(
-        { type: "website-tts:play", audioBase64: payload.audioBase64, contentType: payload.contentType },
-        response => {
-          const error = chrome.runtime.lastError;
-          if (error) return reject(new Error(error.message));
-          if (token !== runId) return resolve();
-          if (response?.error) return reject(new Error(response.error));
-          resolve();
-        }
-      );
+      chrome.runtime.sendMessage({
+        type: "website-tts:play",
+        audioBase64: payload.audioBase64,
+        contentType: payload.contentType
+      }, response => {
+        const error = chrome.runtime.lastError;
+        if (error) return reject(new Error(error.message));
+        if (token !== runId) return resolve();
+        if (response?.error) return reject(new Error(response.error));
+        resolve();
+      });
     });
   }
 
-  async function speakParagraph(nextIndex) {
-    if (!blocks.length) return { error: "No readable text found on this page.", status: status() };
-    if (nextIndex < 0) nextIndex = 0;
-    if (nextIndex >= blocks.length) {
-      stop();
-      finished = true;
-      index = blocks.length - 1;
-      return { status: status() };
-    }
+  async function speakOne(localIndex) {
+    if (!blocks.length) return { error: "No readable text found in this frame." };
+    if (localIndex < 0 || localIndex >= blocks.length) return { ok: true };
 
-    stop();
+    stopLocal();
     const token = runId;
-    index = nextIndex;
-    finished = false;
     speaking = true;
-    const element = blocks[index];
+    finished = false;
+    const element = blocks[localIndex];
     clearHighlight();
     element.classList.add(highlightClass);
     element.scrollIntoView({ behavior: "smooth", block: "center" });
 
     try {
-      const chunks = splitText(element.innerText.trim());
-      for (const chunk of chunks) {
-        if (token !== runId) return { status: status() };
-        const audioPayload = await requestAudio(chunk, token);
-        if (token !== runId) return { status: status() };
-        await playAudio(audioPayload, token);
+      for (const chunk of splitText(element.innerText.trim())) {
+        if (token !== runId) return { stopped: true };
+        const payload = await requestAudio(chunk, token);
+        if (token !== runId) return { stopped: true };
+        await playAudio(payload, token);
       }
-      if (token !== runId) return { status: status() };
-      if (index + 1 < blocks.length) return speakParagraph(index + 1);
+      if (token !== runId) return { stopped: true };
       speaking = false;
-      finished = true;
       clearHighlight();
-      return { status: status() };
+      return { ok: true };
     } catch (error) {
       if (token === runId) {
         speaking = false;
         clearHighlight();
         console.error("WebsiteTTS:", error);
-        return { error: error.message, status: status() };
       }
-      return { status: status() };
+      return { error: error.message };
     }
   }
 
@@ -163,26 +141,151 @@
     "scroll-margin-top:100px!important}";
   (document.head || document.documentElement).appendChild(style);
 
-  chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  // Each frame exposes only its own text count and one-block playback operation.
+  if (!isTopFrame) {
+    chrome.runtime.onMessage.addListener((message, sender, reply) => {
+      if (message.command === "websiteTTS:collectFrame") {
+        blocks = collectTextBlocks();
+        reply({ count: blocks.length });
+      } else if (message.command === "websiteTTS:speakFrameBlock") {
+        rate = Number(message.rate) || rate;
+        speakOne(message.index).then(reply);
+      } else if (message.command === "websiteTTS:stopFrame") {
+        stopLocal();
+        reply({ ok: true });
+      } else if (message.command === "websiteTTS:setFrameRate") {
+        rate = Math.min(2, Math.max(0.7, Number(message.rate) || rate));
+        reply({ ok: true });
+      }
+      return true;
+    });
+    return;
+  }
+
+  let frameBlocks = [];
+  let globalIndex = 0;
+  let activeFrameId = null;
+  let controllerRun = 0;
+
+  function sendBackground(message) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(message, response => {
+        const error = chrome.runtime.lastError;
+        if (error) return reject(new Error(error.message));
+        if (response?.error) return reject(new Error(response.error));
+        resolve(response);
+      });
+    });
+  }
+
+  async function collectAllFrames() {
+    const result = await sendBackground({ type: "website-tts:collect-frames" });
+    frameBlocks = result.frames || [];
+    return frameBlocks.reduce((sum, frame) => sum + frame.count, 0);
+  }
+
+  async function stopAllFrames() {
+    controllerRun++;
+    if (activeFrameId !== null) {
+      await sendBackground({
+        type: "website-tts:frame-command",
+        frameId: activeFrameId,
+        command: "websiteTTS:stopFrame"
+      }).catch(() => {});
+    }
+    await sendBackground({ type: "website-tts:stop-all-frames" }).catch(() => {});
+    activeFrameId = null;
+    speaking = false;
+  }
+
+  function locateGlobalIndex(target) {
+    let offset = 0;
+    for (const frame of frameBlocks) {
+      if (target < offset + frame.count) return { frame, localIndex: target - offset };
+      offset += frame.count;
+    }
+    return null;
+  }
+
+  async function playGlobal(target, token) {
+    const total = frameBlocks.reduce((sum, frame) => sum + frame.count, 0);
+    if (target < 0) target = 0;
+    if (target >= total) {
+      speaking = false;
+      finished = true;
+      activeFrameId = null;
+      return { status: { speaking, finished, index: Math.max(0, total - 1), total } };
+    }
+
+    const located = locateGlobalIndex(target);
+    if (!located) return { error: "Could not locate the selected lesson content." };
+    globalIndex = target;
+    activeFrameId = located.frame.frameId;
+    speaking = true;
+    finished = false;
+
+    const result = await sendBackground({
+      type: "website-tts:frame-command",
+      frameId: located.frame.frameId,
+      command: "websiteTTS:speakFrameBlock",
+      index: located.localIndex,
+      rate
+    });
+    if (token !== controllerRun) return { status: { speaking: false, finished: false, index: globalIndex, total } };
+    if (result?.error) {
+      speaking = false;
+      return { error: result.error, status: { speaking, finished, index: globalIndex, total } };
+    }
+    if (target + 1 < total) return playGlobal(target + 1, token);
+
+    speaking = false;
+    finished = true;
+    activeFrameId = null;
+    return { status: { speaking, finished, index: globalIndex, total } };
+  }
+
+  async function handleCommand(message) {
     if (message.rate) {
       rate = Math.min(2, Math.max(0.7, Number(message.rate) || rate));
-      if (audio) audio.playbackRate = rate;
+      await sendBackground({ type: "website-tts:set-frame-rate", rate }).catch(() => {});
+    }
+
+    if (message.command === "getStatus") {
+      const total = frameBlocks.reduce((sum, frame) => sum + frame.count, 0);
+      return { status: { speaking, finished, index: globalIndex, total } };
+    }
+    if (message.command === "setRate") {
+      return { status: { speaking, finished, index: globalIndex, total: frameBlocks.reduce((sum, frame) => sum + frame.count, 0) } };
+    }
+    if (message.command === "stop") {
+      await stopAllFrames();
+      finished = false;
+      return { status: { speaking, finished, index: globalIndex, total: frameBlocks.reduce((sum, frame) => sum + frame.count, 0) } };
     }
 
     if (message.command === "start") {
-      blocks = collectTextBlocks();
-      speakParagraph(finished ? 0 : index).then(reply);
-    } else if (message.command === "stop") {
-      stop();
-      finished = false;
-      reply({ status: status() });
-    } else if (message.command === "forward") {
-      speakParagraph(index + 1).then(reply);
-    } else if (message.command === "backward") {
-      speakParagraph(Math.max(0, index - 1)).then(reply);
-    } else if (message.command === "setRate" || message.command === "getStatus") {
-      reply({ status: status() });
+      await stopAllFrames();
+      const total = await collectAllFrames();
+      if (!total) return { error: "No readable text found on this page or its frames." };
+      globalIndex = finished ? 0 : Math.min(globalIndex, total - 1);
+      const token = controllerRun;
+      return playGlobal(globalIndex, token);
     }
+
+    if (message.command === "forward" || message.command === "backward") {
+      if (!frameBlocks.length) {
+        const total = await collectAllFrames();
+        if (!total) return { error: "No readable text found on this page or its frames." };
+      }
+      await stopAllFrames();
+      const next = message.command === "forward" ? globalIndex + 1 : Math.max(0, globalIndex - 1);
+      return playGlobal(next, controllerRun);
+    }
+  }
+
+  chrome.runtime.onMessage.addListener((message, sender, reply) => {
+    if (!["start", "stop", "forward", "backward", "setRate", "getStatus"].includes(message.command)) return;
+    handleCommand(message).then(reply).catch(error => reply({ error: error.message || "Unable to read this page." }));
     return true;
   });
 })();
