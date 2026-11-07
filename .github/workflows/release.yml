@@ -30,21 +30,16 @@ jobs:
           import json
           from pathlib import Path
 
-          manifest_path = Path("manifest.json")
-          manifest = json.loads(manifest_path.read_text())
+          manifest = json.loads(Path("manifest.json").read_text())
           assert manifest.get("manifest_version") == 3, "Manifest V3 is required"
           assert manifest.get("version"), "Extension version is missing"
-
           required = [
               manifest["background"]["service_worker"],
               manifest["action"]["default_popup"],
               manifest["options_ui"]["page"],
               *manifest["content_scripts"][0]["js"],
-          ]
-          required += [
               "offscreen.html", "offscreen.js",
-              "popup.css", "popup.js",
-              "options.css", "options.js",
+              "popup.css", "popup.js", "options.css", "options.js",
           ]
           missing = [name for name in required if not Path(name).is_file()]
           if missing:
@@ -58,36 +53,26 @@ jobs:
             node --check "$file"
           done
 
-      - name: Build distributable ZIP
+      - name: Build distributable ZIP and unpacked folder
         run: |
-          mkdir -p dist
+          mkdir -p dist/unpacked
           python3 - <<'PY'
           import json
           from pathlib import Path
           from zipfile import ZIP_DEFLATED, ZipFile
-
           manifest = json.loads(Path("manifest.json").read_text())
-          version = manifest["version"]
           files = [
-              "manifest.json",
-              "background.js",
-              "offscreen.html",
-              "offscreen.js",
-              "popup.html",
-              "popup.css",
-              "popup.js",
-              "options.html",
-              "options.css",
-              "options.js",
-              "content.js",
-              "README.md",
-              "BROWSER_SUPPORT.md",
+              "manifest.json", "background.js", "offscreen.html", "offscreen.js",
+              "popup.html", "popup.css", "popup.js",
+              "options.html", "options.css", "options.js", "content.js",
+              "README.md", "BROWSER_SUPPORT.md",
           ]
           missing = [name for name in files if not Path(name).is_file()]
           if missing:
               raise SystemExit("Cannot package; missing: " + ", ".join(missing))
-
-          output = Path("dist") / f"WebsiteTTS-v{version}-chromium.zip"
+          for name in files:
+              Path("dist/unpacked", name).write_bytes(Path(name).read_bytes())
+          output = Path("dist") / f"WebsiteTTS-v{manifest['version']}-chromium.zip"
           with ZipFile(output, "w", ZIP_DEFLATED) as archive:
               for name in files:
                   archive.write(name, arcname=name)
@@ -96,7 +81,14 @@ jobs:
           cd dist
           sha256sum WebsiteTTS-*.zip > SHA256SUMS.txt
 
-      - name: Upload release package
+      - name: Upload ready-to-load extension folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebsiteTTS-load-unpacked
+          path: dist/unpacked/*
+          if-no-files-found: error
+
+      - name: Upload portable Chromium ZIP and checksum
         uses: actions/upload-artifact@v4
         with:
           name: WebsiteTTS-chromium-package
