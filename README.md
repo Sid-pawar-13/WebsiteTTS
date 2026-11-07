@@ -1,6 +1,6 @@
 # WebsiteTTS
 
-A Chrome Manifest V3 extension that reads webpage content aloud using either local Ollama Phonon or an OpenAI-compatible TTS API. It highlights the current paragraph and automatically scrolls as it reads.
+A Manifest V3 browser extension that reads webpage content aloud using either local Ollama Phonon or an OpenAI-compatible TTS API. It highlights the current paragraph and automatically scrolls as it reads.
 
 ## Features
 - Start / stop reading; forward / backward by paragraph
@@ -58,18 +58,31 @@ Each section is synthesized when it is about to be read. A newer section does no
 
 Use the moon/sun control in the popup or settings page to switch between light and dark themes. The selected theme is stored in Chrome extension storage and shared by both pages.
 
-## Install
+## Install for testing
 
-1. Download or clone this repository.
-2. Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the folder containing `manifest.json`.
-3. After updating files, click **Reload** on the extension card.
+1. Download or clone this repository, or download the Chromium ZIP from a GitHub Release.
+2. Extract the ZIP if you downloaded a release package.
+3. Open the browser's extensions page, enable **Developer mode**, click **Load unpacked**, and select the folder containing `manifest.json`.
+   - Chrome: `chrome://extensions`
+   - Edge: `edge://extensions`
+   - Brave: `brave://extensions`
+   - Opera: `opera://extensions`
+4. After updating files, click **Reload** on the extension card.
 
-No build step is required.
+No build step is required. This is a developer/sideload installation; public users should use the official browser store listing when available.
 
-## Package
+## Public distribution and releases
 
-- macOS/Linux: `zip -r WebsiteTTS.zip manifest.json background.js offscreen.html offscreen.js popup.html popup.css popup.js options.html options.css options.js content.js README.md`
-- Windows PowerShell: `Compress-Archive -Path manifest.json,background.js,offscreen.html,offscreen.js,popup.html,popup.css,popup.js,options.html,options.css,options.js,content.js,README.md -DestinationPath WebsiteTTS.zip`
+The repository includes a GitHub Actions workflow that validates the extension and builds a clean Chromium ZIP. See [BROWSER_SUPPORT.md](BROWSER_SUPPORT.md) for supported browsers, installation steps, and the release procedure.
+
+To publish a release:
+
+1. Update the `version` field in `manifest.json`.
+2. Merge the tested changes into `main`.
+3. Create and push a matching tag, for example `v1.4.0`.
+4. GitHub Actions checks the manifest and JavaScript syntax, builds `WebsiteTTS-v1.4.0-chromium.zip`, generates a SHA-256 checksum, and creates a GitHub Release.
+
+The same tested Chromium package can be submitted separately to the Chrome Web Store and Microsoft Edge Add-ons. Brave and Opera can use the Chromium package, subject to their current store policies. Store submissions and approvals are manual; a GitHub Release does not publish to browser stores automatically.
 
 ## API key security
 
@@ -87,4 +100,4 @@ OpenAI-compatible API keys are stored in `chrome.storage.local`. This is not a s
 
 ## Limitations
 
-Chrome blocks extensions on internal pages and some browser-owned viewers. The extension reads text rendered in the page DOM; inaccessible cross-origin frames and browser PDF viewer content may not be available.
+The extension reads text rendered in the page DOM; inaccessible cross-origin frames and browser PDF viewer content may not be available. Firefox and Safari are not supported by the current Chromium package; see [BROWSER_SUPPORT.md](BROWSER_SUPPORT.md).
