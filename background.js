@@ -78,7 +78,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else {
       contentType = contentType || "audio/mpeg";
     }
-    sendResponse({ audioUrl: `data:${contentType};base64,${toBase64(audioBuffer)}` });
+    sendResponse({ audioBase64: toBase64(audioBuffer), contentType });
   })().catch(error => sendResponse({ error: error.message || "Unable to generate speech." }));
   return true;
 });
