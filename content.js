@@ -87,7 +87,6 @@
 
   function playAudio(payload, token) {
     return new Promise((resolve, reject) => {
-      let objectUrl;
       let settled = false;
       const finish = (error) => {
         if (settled) return;
@@ -98,21 +97,16 @@
         player.pause();
         player.removeAttribute("src");
         player.load();
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
         if (error) reject(error);
         else resolve();
       };
 
       let player;
       try {
-        const binary = atob(payload.audioBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const blob = new Blob([bytes], { type: payload.contentType });
-        objectUrl = URL.createObjectURL(blob);
+        const audioUrl = `data:${payload.contentType};base64,${payload.audioBase64}`;
         player = new Audio();
         player.preload = "auto";
-        player.src = objectUrl;
+        player.src = audioUrl;
         audio = player;
         player.playbackRate = rate;
         player.onended = () => finish();
@@ -121,14 +115,13 @@
           const details = mediaError
             ? `MediaError code ${mediaError.code}: ${mediaError.message || "no additional details"}`
             : "The browser did not provide media error details.";
-          finish(new Error(`Chrome could not decode the TTS audio (${details}; type: ${payload.contentType}; bytes: ${blob.size}).`));
+          finish(new Error(`Chrome could not decode the TTS audio (${details}; type: ${payload.contentType}; base64 characters: ${payload.audioBase64.length}).`));
         };
         player.play().catch(error => {
           finish(new Error(`Chrome could not start TTS playback: ${error.message || error.name || "unknown playback error"}`));
         });
         if (token !== runId) finish();
       } catch (error) {
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
         reject(new Error(`Could not prepare TTS audio for playback: ${error.message}`));
       }
     });
