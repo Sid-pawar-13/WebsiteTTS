@@ -138,7 +138,7 @@ Then:
 
 You may need to repeat the launchctl command after logging in again. The command shown here is for macOS; other operating systems use different methods to configure environment variables.
 
-For tighter origin permissions, replace the wildcard with this extension's specific chrome-extension://<extension-id> origin. See the [Ollama CORS FAQ](https://github.com/ollama/ollama/blob/main/docs/faq.mdx#how-do-i-allow-additional-web-origins-to-access-ollama).
+For tighter origin permissions, replace the wildcard with this extension's specific chrome-extension://&lt;extension-id&gt; origin. See the [Ollama CORS FAQ](https://github.com/ollama/ollama/blob/main/docs/faq.mdx#how-do-i-allow-additional-web-origins-to-access-ollama).
 
 #### 2. Enter the WebsiteTTS settings
 
