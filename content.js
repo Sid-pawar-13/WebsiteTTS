@@ -78,7 +78,6 @@
           if (error) return reject(new Error(error.message));
           if (token !== runId) return reject(new Error("Playback stopped."));
           if (response?.error) return reject(new Error(response.error));
-          if (!response?.audioUrl) return reject(new Error("The TTS API returned no audio."));
           if (!response?.audioBase64 || !response?.contentType) return reject(new Error("The TTS API returned an incomplete audio response."));
           resolve({ audioBase64: response.audioBase64, contentType: response.contentType });
         }
