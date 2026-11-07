@@ -94,9 +94,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message?.type !== "website-tts:synthesize") return;
   (async () => {
-    const saved = await chrome.storage.local.get({ provider: "openai", ...PROVIDER_DEFAULTS.openai });
+    const saved = await chrome.storage.local.get(null);
     const provider = saved.provider === "ollama" ? "ollama" : "openai";
-    const config = { ...PROVIDER_DEFAULTS[provider], ...saved };
+    const legacyConfig = Object.fromEntries(
+      ["endpoint", "model", "voice", "apiKey"]
+        .filter(key => saved[key] !== undefined)
+        .map(key => [key, saved[key]])
+    );
+    const providerConfig = saved.providerSettings?.[provider] || legacyConfig;
+    const config = { ...PROVIDER_DEFAULTS[provider], ...providerConfig };
     if (!config.endpoint?.trim()) throw new Error("Enter the TTS API base URL in settings.");
     if (!config.model?.trim()) throw new Error("Enter a TTS model name in settings.");
     if (provider === "openai" && !config.apiKey?.trim()) throw new Error("Enter your API key in TTS settings.");
