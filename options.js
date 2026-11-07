@@ -4,6 +4,7 @@ const providerHelp = document.getElementById("providerHelp");
 const statusEl = document.getElementById("settingsStatus");
 const testButton = document.getElementById("test");
 const saveButton = document.getElementById("save");
+const themeToggle = document.getElementById("themeToggle");
 const FIELDS = ["endpoint", "model", "voice", "apiKey"];
 
 const DEFAULTS = {
@@ -28,6 +29,24 @@ let providerSettings = {
   ollama: { ...DEFAULTS.ollama },
   openai: { ...DEFAULTS.openai }
 };
+
+function applyTheme(theme) {
+  const dark = theme === "dark";
+  document.body.dataset.theme = dark ? "dark" : "light";
+  themeToggle.textContent = dark ? "☀ Light" : "☾ Dark";
+  themeToggle.title = dark ? "Switch to light theme" : "Switch to dark theme";
+  themeToggle.setAttribute("aria-label", themeToggle.title);
+}
+
+themeToggle.addEventListener("click", async () => {
+  const next = document.body.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try {
+    await chrome.storage.local.set({ theme: next });
+  } catch (error) {
+    setStatus("Could not save theme: " + (error.message || "Unknown storage error"), "error");
+  }
+});
 
 function setStatus(message, type = "") {
   statusEl.textContent = message;
@@ -102,9 +121,11 @@ async function testConfiguration(values, providerName) {
     response = await fetch(speechUrl(values.endpoint), {
       method: "POST",
       headers,
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60000)
     });
   } catch (error) {
+    if (error.name === "TimeoutError" || error.name === "AbortError") throw new Error("The API test timed out after 60 seconds. Check the model server and try again.");
     if (providerName === "ollama") {
       throw new Error("Could not connect to Ollama. Check that it is running and allows this extension in OLLAMA_ORIGINS. " + error.message);
     }
@@ -252,6 +273,7 @@ async function saveConfiguration() {
 async function loadSettings() {
   try {
     const stored = await chrome.storage.local.get(null);
+    applyTheme(stored.theme || "light");
     const selectedProvider = stored.provider === "ollama" ? "ollama" : "openai";
     const savedProviders = stored.providerSettings || {};
 
