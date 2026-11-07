@@ -128,8 +128,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     let response;
     try {
-      response = await fetch(url.toString(), { method: "POST", headers, body: JSON.stringify(body) });
+      response = await fetch(url.toString(), { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(120000) });
     } catch (error) {
+      if (error.name === "TimeoutError" || error.name === "AbortError") throw new Error("The TTS request timed out after 120 seconds. Check the model server and try a shorter section.");
       if (provider === "ollama") {
         throw new Error("Cannot reach Ollama. Ensure it is running and has allowed this Chrome extension in OLLAMA_ORIGINS. " + error.message);
       }
@@ -155,6 +156,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       contentType = "audio/wav";
     } else {
+      if (contentType && !contentType.toLowerCase().startsWith("audio/") && !contentType.toLowerCase().includes("application/octet-stream")) {
+        throw new Error("The TTS API returned " + contentType + " instead of audio. Check the model and speech endpoint.");
+      }
       contentType = contentType || "audio/mpeg";
     }
     sendResponse({ audioBase64: toBase64(audioBuffer), contentType });
