@@ -43,6 +43,13 @@
       <p id="settingsStatus" class="status" role="status" aria-live="polite">Loading saved configuration…</p>
     </section>
 
+    <section class="note ollama-note">
+      <strong>Ollama on macOS — run this before launching Ollama</strong>
+      <p>Open Terminal and run the command below to allow the Chrome extension to connect to Ollama:</p>
+      <pre><code>launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"</code></pre>
+      <p>Then fully quit Ollama and launch it again. If Ollama is already running, setting this variable will not update its environment. You may need to repeat this command after logging in again.</p>
+    </section>
+
     <section class="note">
       <strong>How the API test works</strong>
       <p>WebsiteTTS sends a short “Hi! This is a test.” speech request. The response is checked for valid, non-empty audio. Saving runs this test first; settings are stored only after it succeeds.</p>
