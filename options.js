@@ -129,10 +129,22 @@ async function testConfiguration(values, providerName) {
     throw new Error("The API returned " + responseType + " instead of audio. Check the model and speech endpoint.");
   }
 
-  return {
-    bytes: audio.byteLength,
-    contentType: providerName === "ollama" ? "audio/wav" : (responseType || "audio/mpeg")
-  };
+  return new Blob([audio], {
+    type: providerName === "ollama" ? "audio/wav" : (responseType || "audio/mpeg")
+  });
+}
+
+async function playTestAudio(blob) {
+  const audioUrl = URL.createObjectURL(blob);
+  const audio = new Audio(audioUrl);
+  audio.addEventListener("ended", () => URL.revokeObjectURL(audioUrl), { once: true });
+  audio.addEventListener("error", () => URL.revokeObjectURL(audioUrl), { once: true });
+  try {
+    await audio.play();
+  } catch (error) {
+    URL.revokeObjectURL(audioUrl);
+    throw new Error("The API returned audio, but the test sound could not be played: " + error.message);
+  }
 }
 
 async function runTest() {
@@ -142,8 +154,9 @@ async function runTest() {
   saveButton.disabled = true;
   setStatus("Sending test prompt to " + (providerName === "ollama" ? "Ollama" : "the API") + "…");
   try {
-    const result = await testConfiguration(values, providerName);
-    setStatus("API test successful. Received " + result.bytes.toLocaleString() + " bytes of " + result.contentType + " audio.", "success");
+    const audio = await testConfiguration(values, providerName);
+    await playTestAudio(audio);
+    setStatus("API test successful. Playing: “Hi! This is a test.”", "success");
     return { providerName, values };
   } catch (error) {
     setStatus("API test failed: " + (error.message || "Unknown error"), "error");
@@ -195,7 +208,7 @@ async function saveConfiguration() {
     }
 
     providerSettings = nextSettings;
-    setStatus("API test passed and configuration saved successfully.", "success");
+    setStatus("API test passed, test audio played and configuration saved successfully.", "success");
   } catch (error) {
     setStatus("Could not save configuration: " + (error.message || "Unknown storage error"), "error");
   } finally {
