@@ -65,7 +65,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     const audioBuffer = await response.arrayBuffer();
     if (!audioBuffer.byteLength) throw new Error("The TTS API returned an empty audio file.");
-    const contentType = response.headers.get("content-type") || (provider === "ollama" ? "audio/wav" : "audio/mpeg");
+
+    // Phonon returns WAV. Some Ollama/proxy configurations report a generic
+    // content type, which can prevent Chrome's Audio element from decoding it.
+    let contentType = response.headers.get("content-type") || "";
+    if (provider === "ollama") {
+      const signature = new TextDecoder().decode(new Uint8Array(audioBuffer, 0, Math.min(4, audioBuffer.byteLength)));
+      if (signature !== "RIFF") {
+        throw new Error(`Ollama did not return a WAV file (received ${contentType || "unknown content type"}). Check that the selected model is Phonon and response_format is wav.`);
+      }
+      contentType = "audio/wav";
+    } else {
+      contentType = contentType || "audio/mpeg";
+    }
     sendResponse({ audioUrl: `data:${contentType};base64,${toBase64(audioBuffer)}` });
   })().catch(error => sendResponse({ error: error.message || "Unable to generate speech." }));
   return true;
