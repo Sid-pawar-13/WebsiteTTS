@@ -25,7 +25,13 @@
       !el.querySelector(semanticSelector) && !el.querySelector("div")
     );
     const candidates = [...new Set([...semantic, ...leafDivs])];
-    const seen = new Set();
+    const candidatesByText = new Map();
+    for (const el of candidates) {
+      const text = el.innerText?.replace(/\s+/g, " ").trim();
+      if (!text) continue;
+      if (!candidatesByText.has(text)) candidatesByText.set(text, []);
+      candidatesByText.get(text).push(el);
+    }
 
     return candidates.filter(el => {
       const text = el.innerText?.replace(/\s+/g, " ").trim();
@@ -35,8 +41,11 @@
       const style = window.getComputedStyle(el);
       if (style.display === "none" || style.visibility === "hidden") return false;
       if (el.tagName === "DIV" && text.length < 25) return false;
-      if (seen.has(text)) return false;
-      seen.add(text);
+
+      // Ignore a wrapper when a nested candidate contains the exact same text,
+      // but preserve separate paragraphs that happen to repeat the same words.
+      const sameText = candidatesByText.get(text) || [];
+      if (sameText.some(other => other !== el && el.contains(other))) return false;
       return true;
     });
   }
