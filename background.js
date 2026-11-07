@@ -18,13 +18,24 @@ function toBase64(buffer) {
   return btoa(binary);
 }
 
+let creatingOffscreenDocument = null;
+
 async function ensureAudioDocument() {
   if (await chrome.offscreen.hasDocument()) return;
-  await chrome.offscreen.createDocument({
-    url: "offscreen.html",
-    reasons: ["AUDIO_PLAYBACK"],
-    justification: "Play generated speech audio outside the webpage context."
-  });
+  if (!creatingOffscreenDocument) {
+    creatingOffscreenDocument = chrome.offscreen.createDocument({
+      url: "offscreen.html",
+      reasons: ["AUDIO_PLAYBACK"],
+      justification: "Play generated speech audio outside the webpage context."
+    }).catch(async error => {
+      // Another message may have created the document while this request waited.
+      if (await chrome.offscreen.hasDocument()) return;
+      throw error;
+    }).finally(() => {
+      creatingOffscreenDocument = null;
+    });
+  }
+  await creatingOffscreenDocument;
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
