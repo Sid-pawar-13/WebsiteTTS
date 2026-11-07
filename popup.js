@@ -1,10 +1,12 @@
 const statusEl = document.getElementById("status");
 const rate = document.getElementById("rate");
+const provider = document.getElementById("provider");
 
 async function loadSettings() {
   try {
-    const stored = await chrome.storage.local.get(["speed"]);
+    const stored = await chrome.storage.local.get(["speed", "provider"]);
     rate.value = String(stored.speed ?? 1);
+    provider.value = stored.provider === "ollama" ? "ollama" : "openai";
     updateRateLabel();
   } catch (error) {
     statusEl.textContent = "Could not load settings: " + error.message;
@@ -38,6 +40,16 @@ async function send(command) {
 function openSettings() {
   chrome.runtime.openOptionsPage();
 }
+
+provider.addEventListener("change", async () => {
+  try {
+    await chrome.storage.local.set({ provider: provider.value });
+    statusEl.textContent = "Active provider: " +
+      (provider.value === "ollama" ? "Ollama" : "OpenAI-compatible API");
+  } catch (error) {
+    statusEl.textContent = "Could not change provider: " + error.message;
+  }
+});
 
 document.getElementById("openSettings").addEventListener("click", openSettings);
 document.getElementById("settingsLink").addEventListener("click", openSettings);
