@@ -48,7 +48,7 @@ function updateProviderHelp() {
   const local = provider.value === "ollama";
   apiKeyGroup.hidden = local;
   providerHelp.textContent = local
-    ? "Phonon returns WAV audio. Use http://localhost:11434/v1, model phonon and voice default. Ollama must allow this extension in OLLAMA_ORIGINS."
+    ? "Phonon returns WAV audio. Use http://localhost:11434/v1, model phonon and voice default. On macOS, run the OLLAMA_ORIGINS command shown below before launching Ollama."
     : "Uses the OpenAI-compatible POST /audio/speech endpoint and expects MP3 audio. An API key is required.";
 }
 
@@ -184,9 +184,14 @@ async function saveConfiguration() {
 
     const verified = await chrome.storage.local.get(["provider", "providerSettings"]);
     const savedConfig = verified.providerSettings?.[tested.providerName];
-    if (verified.provider !== tested.providerName ||
-        JSON.stringify(savedConfig) !== JSON.stringify(tested.values)) {
-      throw new Error("Settings could not be verified after saving.");
+    const mismatchedFields = FIELDS.filter(field =>
+      savedConfig?.[field] !== tested.values[field]
+    );
+    if (verified.provider !== tested.providerName || mismatchedFields.length > 0) {
+      const detail = mismatchedFields.length
+        ? "Fields not retained: " + mismatchedFields.join(", ") + "."
+        : "The selected provider was not retained.";
+      throw new Error("Chrome storage verification failed. " + detail);
     }
 
     providerSettings = nextSettings;
@@ -235,9 +240,5 @@ provider.addEventListener("change", () => {
 });
 testButton.addEventListener("click", testOnly);
 saveButton.addEventListener("click", saveConfiguration);
-document.getElementById("backToPopup").addEventListener("click", event => {
-  event.preventDefault();
-  window.close();
-});
 
 loadSettings();
