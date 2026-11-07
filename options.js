@@ -21,6 +21,8 @@ const DEFAULTS = {
   }
 };
 
+let testAudioPlayer = null;
+
 let providerSettings = {
   ollama: { ...DEFAULTS.ollama },
   openai: { ...DEFAULTS.openai }
@@ -130,13 +132,14 @@ async function testConfiguration(values, providerName) {
   }
 
   return new Blob([audio], {
-    type: providerName === "ollama" ? "audio/wav" : (responseType || "audio/mpeg")
+    type: providerName === "ollama" ? "audio/wav" : (responseType.toLowerCase().startsWith("audio/") ? responseType : "audio/mpeg")
   });
 }
 
 async function playTestAudio(blob) {
   const audioUrl = URL.createObjectURL(blob);
   const audio = new Audio(audioUrl);
+  testAudioPlayer = audio;
   audio.addEventListener("ended", () => URL.revokeObjectURL(audioUrl), { once: true });
   audio.addEventListener("error", () => URL.revokeObjectURL(audioUrl), { once: true });
   try {
