@@ -12,6 +12,11 @@
       <div><h1>▶ WebsiteTTS</h1><p>Listen to this webpage</p></div>
       <button type="button" id="openSettings" class="settings-button" title="Open settings" aria-label="Open settings">⚙</button>
     </header>
+    <label for="provider">TTS provider</label>
+    <select id="provider" aria-label="TTS provider">
+      <option value="ollama">Ollama (local / Phonon)</option>
+      <option value="openai">OpenAI-compatible API</option>
+    </select>
     <p id="status" aria-live="polite">Ready to read</p>
     <section class="controls">
       <button type="button" id="backward" title="Previous paragraph" aria-label="Previous paragraph">↶</button>
