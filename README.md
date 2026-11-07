@@ -80,6 +80,7 @@ OpenAI-compatible API keys are stored in `chrome.storage.local`. This is not a s
 - Speech-generation requests now time out rather than waiting indefinitely (120 seconds during reading; 60 seconds for the settings test).
 - Successful HTTP responses are checked for an audio content type for OpenAI-compatible providers, reducing confusing decode failures when a proxy returns an HTML page with status 200.
 - Navigation checks the playback generation after asynchronous frame discovery, so a Stop command issued during discovery is not followed by a stale Start/Next operation.
+- Offscreen audio-document creation is serialized so simultaneous Stop/Play messages do not race to create multiple offscreen documents.
 - The extension still requests access to all URLs and injects a content script into matching frames because its core feature is reading arbitrary webpages, including embedded lesson content. This is broad access; users should install it only if they trust the extension source.
 - The popup currently waits for a reading/navigation command to finish before its status text is refreshed. A future improvement would be to move playback status to push updates so the popup can remain responsive and show live progress.
 - Text extraction is heuristic. Repeated identical paragraphs may be deduplicated, and complex pages can contain navigation or duplicated nested text; page-specific extraction rules may be needed for some sites.
