@@ -41,12 +41,12 @@
       const parts = [];
       let node;
       while ((node = walker.nextNode())) parts.push(node.nodeValue.trim());
-      return parts.join(" ").replace(/\\s+/g, " ").trim();
+      return parts.join(" ").replace(/\s+/g, " ").trim();
     }
 
     const candidates = semantic.map(element => ({
       element,
-      text: element.innerText?.replace(/\\s+/g, " ").trim()
+      text: element.innerText?.replace(/\s+/g, " ").trim()
     }));
 
     for (const element of document.querySelectorAll("div")) {
