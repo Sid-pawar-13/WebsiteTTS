@@ -1,0 +1,28 @@
+*{box-sizing:border-box}
+body{margin:0;background:#f5f6fa;color:#20242c;font:15px Arial,sans-serif}
+.settings-page{width:min(100% - 32px,680px);margin:48px auto;padding-bottom:40px}
+.back-link{display:inline-block;color:#4255d4;text-decoration:none;font-size:13px;font-weight:600;margin-bottom:28px}
+.eyebrow{display:block;color:#7c8391;font-size:11px;font-weight:700;letter-spacing:1.4px;margin-bottom:10px}
+h1{font-size:30px;margin:0 0 8px}
+.intro{color:#697181;margin:0 0 24px;line-height:1.5}
+.panel{background:white;border:1px solid #e4e7ef;border-radius:12px;padding:26px;box-shadow:0 5px 24px rgba(30,40,70,.04)}
+label{display:block;font-size:13px;font-weight:600;margin:17px 0 7px}
+label:first-child{margin-top:0}
+input,select{width:100%;padding:12px;border:1px solid #d9dce5;border-radius:7px;background:white;color:#20242c;font:14px Arial,sans-serif}
+input:focus,select:focus{outline:2px solid #c8cffd;border-color:#6575df}
+.help{font-size:12px;line-height:1.55;color:#737987;margin:12px 0 0}
+.actions{display:flex;gap:10px;margin-top:22px}
+button{padding:11px 16px;border:0;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}
+button.primary{background:#4255d4;color:white;flex:1}
+button.secondary{background:#edf0ff;color:#3547bd}
+.status{font-size:13px;line-height:1.5;margin:16px 0 0;color:#555d6b;min-height:20px}
+.status.success{color:#167448}
+.status.error{color:#b42318}
+.note{margin-top:18px;padding:16px 18px;border:1px solid #e4e7ef;border-radius:9px;background:#fafbfe;font-size:13px;line-height:1.55;color:#616979}
+.note p{margin:6px 0 0}
+.ollama-note{border-color:#d9dfef;background:#f8f9ff}
+.ollama-note pre{overflow-x:auto;margin:10px 0;padding:12px;border-radius:7px;background:#20242c;color:#f4f5f8;font-size:12px;line-height:1.5}
+.ollama-note code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}
+footer{margin-top:20px;text-align:center;font-size:11px;color:#9298a5}
+@media(max-width:520px){.settings-page{margin:24px auto}.panel{padding:18px}.actions{flex-direction:column}.actions button{width:100%}}

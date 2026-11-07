@@ -6,36 +6,47 @@ A Chrome Manifest V3 extension that reads webpage content aloud using either loc
 - Start / stop reading; forward / backward by paragraph
 - Automatic scrolling and paragraph highlighting
 - Adjustable playback speed (0.7×–2.0×)
-- Provider selector: Ollama (local) or OpenAI-compatible API
+- Dedicated settings page for Ollama and OpenAI-compatible providers
+- Test API with a short "Hi! This is a test." prompt before saving
 - Ollama Phonon WAV playback and OpenAI-compatible MP3 playback
 
+## Configure TTS
+
+1. Click the WebsiteTTS extension icon.
+2. Click the gear icon or **Configure TTS provider and API**.
+3. Choose **Ollama (local / Phonon)** or **OpenAI-compatible API**.
+4. Enter the API URL, model and voice. Enter an API key for OpenAI-compatible providers.
+5. Click **Test API** to check the configuration, or **Save configuration** to test and save in one step. A configuration is saved only after the test succeeds.
+
+Each provider's configuration is stored separately, so switching providers does not overwrite the other provider's settings.
+
 ## Use local Ollama Phonon
-1. Install Ollama 0.40.9 or later and start it.
-2. Pull Phonon:
+
+1. Install Ollama 0.40.9 or later.
+2. On macOS, open Terminal and run this command **before launching Ollama**:
+   ```bash
+   launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"
+   ```
+3. If Ollama is already running, fully quit it and launch it again so it inherits the environment variable. You may need to repeat the command after logging in again.
+4. Start Ollama and pull Phonon:
    ```bash
    ollama pull phonon
    ```
-3. In the extension, select **Ollama (local / Phonon)**.
-4. Defaults: URL `http://localhost:11434/v1`, model `phonon`, voice `default`. No API key is required.
-5. Click **Save settings**, then Start on a webpage.
+5. In WebsiteTTS settings, select **Ollama (local / Phonon)**.
+6. Defaults: URL `http://localhost:11434/v1`, model `phonon`, voice `default`. No API key is required.
 
 Ollama's `POST /v1/audio/speech` returns WAV audio by default (24 kHz, mono). The extension explicitly requests WAV. Phonon currently supports API speed `1` only, so the extension applies the speed slider during browser playback instead.
 
-### Allow Chrome extension access to Ollama (CORS)
-Ollama must allow the extension origin. On macOS, one way to set the variable before restarting the Ollama app is:
+The `chrome-extension://*` origin pattern allows Chrome extensions to connect to Ollama. For tighter security, allow only this extension's specific `chrome-extension://<extension-id>` origin. See the [Ollama CORS FAQ](https://github.com/ollama/ollama/blob/main/docs/faq.mdx#how-do-i-allow-additional-web-origins-to-access-ollama).
 
-```bash
-launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"
-```
-
-Quit and restart Ollama after setting it. For tighter security, allow only this extension's specific `chrome-extension://<extension-id>` origin. See the [Ollama CORS FAQ](https://github.com/ollama/ollama/blob/main/docs/faq.mdx#how-do-i-allow-additional-web-origins-to-access-ollama).
-
-**Platform note:** The current Phonon model page specifies Apple Silicon and Ollama 0.40.9 or later. Check the [Phonon library page](https://ollama.com/library/phonon) for current OS support.
+**Platform note:** The command above is for macOS. The current Phonon model page specifies Apple Silicon and Ollama 0.40.9 or later. Check the [Phonon library page](https://ollama.com/library/phonon) for current OS support.
 
 ## Use an OpenAI-compatible provider
+
 Select **OpenAI-compatible API**, then enter API base URL, model, voice and API key. The extension appends `/audio/speech` unless you provide the full endpoint. It requests MP3 and sends the speed parameter.
 
 ## Install
+
 1. Download or clone this repository.
 2. Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the folder containing `manifest.json`.
 3. After updating files, click **Reload** on the extension card.
@@ -43,11 +54,14 @@ Select **OpenAI-compatible API**, then enter API base URL, model, voice and API 
 No build step is required.
 
 ## Package
-- macOS/Linux: `zip -r WebsiteTTS.zip manifest.json background.js popup.html popup.css popup.js content.js README.md`
-- Windows PowerShell: `Compress-Archive -Path manifest.json,background.js,popup.html,popup.css,popup.js,content.js,README.md -DestinationPath WebsiteTTS.zip`
+
+- macOS/Linux: `zip -r WebsiteTTS.zip manifest.json background.js offscreen.html offscreen.js popup.html popup.css popup.js options.html options.css options.js content.js README.md`
+- Windows PowerShell: `Compress-Archive -Path manifest.json,background.js,offscreen.html,offscreen.js,popup.html,popup.css,popup.js,options.html,options.css,options.js,content.js,README.md -DestinationPath WebsiteTTS.zip`
 
 ## API key security
+
 OpenAI-compatible API keys are stored in `chrome.storage.local`. This is not a secure secret vault; someone with access to your browser profile or extension developer tools may retrieve the key. For shared or production use, put the key behind a private backend/proxy.
 
 ## Limitations
+
 Chrome blocks extensions on internal pages and some browser-owned viewers. The extension reads text rendered in the page DOM; inaccessible cross-origin frames and browser PDF viewer content may not be available.
