@@ -18,19 +18,31 @@
   }
 
   function collectTextBlocks() {
-    const preferred = [...document.querySelectorAll(
-      "main p, article p, main h1, main h2, main h3, article h1, article h2, article h3, main li, article li, main blockquote, article blockquote"
-    )];
-    const candidates = preferred.length
-      ? preferred
-      : [...document.querySelectorAll("p,h1,h2,h3,h4,li,blockquote,[role='listitem']")];
+    // Include semantic text elements even when a page also has a title.
+    // Skilljar and other course platforms often render lesson text in nested divs.
+    const semanticSelector =
+      "p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,dt,dd,td,th," +
+      "[role='paragraph'],[role='listitem'],[data-testid*='paragraph'],[data-testid*='text']";
+    const semantic = [...document.querySelectorAll(semanticSelector)];
 
+    // Pick leaf divs containing readable text. This captures div-based lesson
+    // content without also collecting every parent container and duplicating it.
+    const leafDivs = [...document.querySelectorAll("div")].filter(el =>
+      !el.querySelector(semanticSelector) && !el.querySelector("div")
+    );
+
+    const candidates = [...new Set([...semantic, ...leafDivs])];
     const seen = new Set();
     return candidates.filter(el => {
-      const text = el.innerText?.trim();
+      const text = el.innerText?.replace(/\\s+/g, " ").trim();
       const rect = el.getBoundingClientRect();
       if (!text || text.length < 2 || !rect.width || !rect.height ||
-          el.closest("nav,header,footer,aside,[aria-hidden='true']") || seen.has(text)) return false;
+          el.closest("nav,header,footer,aside,[aria-hidden='true'],[hidden]")) return false;
+      const style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      // Ignore short wrapper labels, but keep short semantic headings.
+      if (el.tagName === "DIV" && text.length < 25) return false;
+      if (seen.has(text)) return false;
       seen.add(text);
       return true;
     });
