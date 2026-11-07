@@ -22,6 +22,7 @@ const DEFAULTS = {
 };
 
 let testAudioPlayer = null;
+let testAudioUrl = null;
 
 let providerSettings = {
   ollama: { ...DEFAULTS.ollama },
@@ -79,7 +80,7 @@ function validateConfig(values, providerName) {
 }
 
 function speechUrl(endpoint) {
-  const value = endpoint.trim().replace(/\/+$/, "");
+  const value = endpoint.trim().replace(/\\/+$/, "");
   return value.endsWith("/audio/speech") ? value : value + "/audio/speech";
 }
 
@@ -136,19 +137,47 @@ async function testConfiguration(values, providerName) {
   });
 }
 
+function stopTestAudio() {
+  if (testAudioPlayer) {
+    testAudioPlayer.pause();
+    testAudioPlayer.removeAttribute("src");
+    testAudioPlayer.load();
+    testAudioPlayer = null;
+  }
+  if (testAudioUrl) {
+    URL.revokeObjectURL(testAudioUrl);
+    testAudioUrl = null;
+  }
+}
+
 async function playTestAudio(blob) {
+  // A new test replaces any test clip that is still playing.
+  stopTestAudio();
+
   const audioUrl = URL.createObjectURL(blob);
   const audio = new Audio(audioUrl);
+  testAudioUrl = audioUrl;
   testAudioPlayer = audio;
-  audio.addEventListener("ended", () => URL.revokeObjectURL(audioUrl), { once: true });
-  audio.addEventListener("error", () => URL.revokeObjectURL(audioUrl), { once: true });
+
+  const cleanup = () => {
+    if (testAudioPlayer === audio) testAudioPlayer = null;
+    if (testAudioUrl === audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+      testAudioUrl = null;
+    }
+  };
+  audio.addEventListener("ended", cleanup, { once: true });
+  audio.addEventListener("error", cleanup, { once: true });
+
   try {
     await audio.play();
   } catch (error) {
-    URL.revokeObjectURL(audioUrl);
+    cleanup();
     throw new Error("The API returned audio, but the test sound could not be played: " + error.message);
   }
 }
+
+window.addEventListener("pagehide", stopTestAudio);
 
 async function runTest() {
   const providerName = provider.value;
