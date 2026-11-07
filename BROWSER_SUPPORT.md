@@ -6,7 +6,7 @@
 
 WebsiteTTS is currently built as a **Chromium Manifest V3 extension**. This guide describes the browsers targeted by the current package, how to install it, and where support is not yet claimed.
 
-[![Chromium](https://img.shields.io/badge/Chromium-based-browsers-blue?logo=googlechrome&logoColor=white)](README.md)
+[![Chromium](https://img.shields.io/badge/Chromium-based%20browsers-blue?logo=googlechrome&logoColor=white)](README.md)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue)](manifest.json)
 
 </div>
