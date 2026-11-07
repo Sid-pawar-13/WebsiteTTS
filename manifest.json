@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WebsiteTTS - Text Reader",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Read webpages aloud using local Ollama Phonon or an OpenAI-compatible TTS API.",
   "permissions": [
     "activeTab",
@@ -19,14 +19,14 @@
     "default_title": "Read this page",
     "default_popup": "popup.html"
   },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ],
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
       "run_at": "document_idle",
       "all_frames": true,
       "match_about_blank": true,
