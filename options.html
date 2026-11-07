@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WebsiteTTS Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="settings-page">
+    <header>
+      <a href="#" id="backToPopup" class="back-link">← WebsiteTTS</a>
+      <span class="eyebrow">PREFERENCES</span>
+      <h1>TTS Settings</h1>
+      <p class="intro">Configure the speech provider used to read webpages aloud.</p>
+    </header>
+
+    <section class="panel">
+      <label for="provider">TTS provider</label>
+      <select id="provider">
+        <option value="ollama">Ollama (local / Phonon)</option>
+        <option value="openai">OpenAI-compatible API</option>
+      </select>
+
+      <label for="endpoint">API base URL</label>
+      <input id="endpoint" type="url" spellcheck="false" placeholder="http://localhost:11434/v1">
+
+      <label for="model">TTS model</label>
+      <input id="model" type="text" spellcheck="false" placeholder="phonon">
+
+      <label for="voice">Voice</label>
+      <input id="voice" type="text" spellcheck="false" placeholder="default">
+
+      <div id="apiKeyGroup">
+        <label for="apiKey">API key</label>
+        <input id="apiKey" type="password" autocomplete="off" placeholder="API key">
+      </div>
+
+      <p id="providerHelp" class="help"></p>
+      <div class="actions">
+        <button type="button" id="test" class="secondary">Test API</button>
+        <button type="button" id="save" class="primary">Save configuration</button>
+      </div>
+      <p id="settingsStatus" class="status" role="status" aria-live="polite">Loading saved configuration…</p>
+    </section>
+
+    <section class="note">
+      <strong>How the API test works</strong>
+      <p>WebsiteTTS sends a short “Hi! This is a test.” speech request. The response is checked for valid, non-empty audio. Saving runs this test first; settings are stored only after it succeeds.</p>
+    </section>
+    <footer>API keys are stored locally in Chrome extension storage.</footer>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>
