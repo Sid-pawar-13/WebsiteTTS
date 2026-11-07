@@ -18,7 +18,27 @@ function toBase64(buffer) {
   return btoa(binary);
 }
 
+async function ensureAudioDocument() {
+  if (await chrome.offscreen.hasDocument()) return;
+  await chrome.offscreen.createDocument({
+    url: "offscreen.html",
+    reasons: ["AUDIO_PLAYBACK"],
+    justification: "Play generated speech audio outside the webpage context."
+  });
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "website-tts:play" || message?.type === "website-tts:stop") {
+    (async () => {
+      await ensureAudioDocument();
+      const payload = message.type === "website-tts:stop"
+        ? { target: "offscreen", type: "stop" }
+        : { target: "offscreen", type: "play", audioBase64: message.audioBase64, contentType: message.contentType };
+      const result = await chrome.runtime.sendMessage(payload);
+      sendResponse(result || { ok: true });
+    })().catch(error => sendResponse({ error: error.message || "Audio playback failed." }));
+    return true;
+  }
   if (message?.type !== "website-tts:synthesize") return;
   (async () => {
     const saved = await chrome.storage.local.get({ provider: "openai", ...PROVIDER_DEFAULTS.openai });
