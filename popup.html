@@ -10,7 +10,10 @@
   <main>
     <header>
       <div><h1>▶ WebsiteTTS</h1><p>Listen to this webpage</p></div>
-      <button type="button" id="openSettings" class="settings-button" title="Open settings" aria-label="Open settings">⚙</button>
+      <div class="header-actions">
+        <button type="button" id="themeToggle" class="icon-button" title="Switch to dark theme" aria-label="Switch to dark theme">☾</button>
+        <button type="button" id="openSettings" class="settings-button" title="Open settings" aria-label="Open settings">⚙</button>
+      </div>
     </header>
     <label for="provider">TTS provider</label>
     <select id="provider" aria-label="TTS provider">
