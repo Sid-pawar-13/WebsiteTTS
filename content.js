@@ -265,16 +265,24 @@
 
     if (message.command === "start") {
       await stopAllFrames();
+      const token = controllerRun;
       const total = await collectAllFrames();
+      // A Stop command can arrive while frame discovery is still pending.
+      if (token !== controllerRun) {
+        return { status: { speaking: false, finished: false, index: globalIndex, total } };
+      }
       if (!total) return { error: "No readable text found on this page or its frames." };
       globalIndex = finished ? 0 : Math.min(globalIndex, total - 1);
-      const token = controllerRun;
       return playGlobal(globalIndex, token);
     }
 
     if (message.command === "forward" || message.command === "backward") {
+      const discoveryToken = controllerRun;
       if (!frameBlocks.length) {
         const total = await collectAllFrames();
+        if (discoveryToken !== controllerRun) {
+          return { status: { speaking: false, finished: false, index: globalIndex, total } };
+        }
         if (!total) return { error: "No readable text found on this page or its frames." };
       }
       await stopAllFrames();
