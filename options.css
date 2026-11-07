@@ -21,5 +21,8 @@ button.secondary{background:#edf0ff;color:#3547bd}
 .status.error{color:#b42318}
 .note{margin-top:18px;padding:16px 18px;border:1px solid #e4e7ef;border-radius:9px;background:#fafbfe;font-size:13px;line-height:1.55;color:#616979}
 .note p{margin:6px 0 0}
+.ollama-note{border-color:#d9dfef;background:#f8f9ff}
+.ollama-note pre{overflow-x:auto;margin:10px 0;padding:12px;border-radius:7px;background:#20242c;color:#f4f5f8;font-size:12px;line-height:1.5}
+.ollama-note code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}
 footer{margin-top:20px;text-align:center;font-size:11px;color:#9298a5}
 @media(max-width:520px){.settings-page{margin:24px auto}.panel{padding:18px}.actions{flex-direction:column}.actions button{width:100%}}
