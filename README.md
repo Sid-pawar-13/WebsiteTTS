@@ -22,27 +22,24 @@ Each provider's configuration is stored separately, so switching providers does 
 
 ## Use local Ollama Phonon
 
-1. Install Ollama 0.40.9 or later and start it.
-2. Pull Phonon:
+1. Install Ollama 0.40.9 or later.
+2. On macOS, open Terminal and run this command **before launching Ollama**:
+   ```bash
+   launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"
+   ```
+3. If Ollama is already running, fully quit it and launch it again so it inherits the environment variable. You may need to repeat the command after logging in again.
+4. Start Ollama and pull Phonon:
    ```bash
    ollama pull phonon
    ```
-3. In WebsiteTTS settings, select **Ollama (local / Phonon)**.
-4. Defaults: URL `http://localhost:11434/v1`, model `phonon`, voice `default`. No API key is required.
+5. In WebsiteTTS settings, select **Ollama (local / Phonon)**.
+6. Defaults: URL `http://localhost:11434/v1`, model `phonon`, voice `default`. No API key is required.
 
 Ollama's `POST /v1/audio/speech` returns WAV audio by default (24 kHz, mono). The extension explicitly requests WAV. Phonon currently supports API speed `1` only, so the extension applies the speed slider during browser playback instead.
 
-### Allow Chrome extension access to Ollama (CORS)
+The `chrome-extension://*` origin pattern allows Chrome extensions to connect to Ollama. For tighter security, allow only this extension's specific `chrome-extension://<extension-id>` origin. See the [Ollama CORS FAQ](https://github.com/ollama/ollama/blob/main/docs/faq.mdx#how-do-i-allow-additional-web-origins-to-access-ollama).
 
-Ollama must allow the extension origin. On macOS, one way to set the variable before restarting the Ollama app is:
-
-```bash
-launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"
-```
-
-Quit and restart Ollama after setting it. For tighter security, allow only this extension's specific `chrome-extension://<extension-id>` origin. See the [Ollama CORS FAQ](https://github.com/ollama/ollama/blob/main/docs/faq.mdx#how-do-i-allow-additional-web-origins-to-access-ollama).
-
-**Platform note:** The current Phonon model page specifies Apple Silicon and Ollama 0.40.9 or later. Check the [Phonon library page](https://ollama.com/library/phonon) for current OS support.
+**Platform note:** The command above is for macOS. The current Phonon model page specifies Apple Silicon and Ollama 0.40.9 or later. Check the [Phonon library page](https://ollama.com/library/phonon) for current OS support.
 
 ## Use an OpenAI-compatible provider
 
