@@ -14,13 +14,13 @@ permissions:
 jobs:
   validate:
     name: Validate extension and build package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
 
@@ -82,14 +82,14 @@ jobs:
           sha256sum WebsiteTTS-*.zip > SHA256SUMS.txt
 
       - name: Upload ready-to-load extension folder
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: WebsiteTTS-load-unpacked
           path: dist/unpacked/*
           if-no-files-found: error
 
       - name: Upload portable Chromium ZIP and checksum
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: WebsiteTTS-chromium-package
           path: |
